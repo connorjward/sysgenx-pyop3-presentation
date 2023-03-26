@@ -1,0 +1,203 @@
+\documentclass[aspectratio=169]{beamer}
+
+% packages
+\usepackage{graphicx}
+  \graphicspath{{figures}}
+\usepackage{minted}
+\usepackage{amssymb}
+\usepackage{tcolorbox}
+
+% subfig support
+\usepackage{caption}
+\usepackage{subcaption}
+
+% packages
+\usepackage{biblatex}
+  \addbibresource{bibliography.bib}
+\usepackage[acronym,nomain]{glossaries}
+  \setacronymstyle{long-short}
+  \newacronym[shortplural={DoFs},longplural={degrees-of-freedom}]
+    {dof}{DoF}{degree-of-freedom}
+  \newacronym{fem}{FEM}{the finite element method}
+  \newacronym{pde}{PDE}{partial differential equation}
+  \newacronym[shortplural={FLOPs},longplural={floating-point operations}]
+    {flop}{FLOP}{floating-point operation}
+  \newacronym{dag}{DAG}{directed acyclic graph}
+  \newacronym{dg}{DG}{discontinous Galerkin}
+  \newacronym{poset}{poset}{partially-ordered set}
+  \newacronym{rcm}{RCM}{reverse Cuthill-McKee}
+  \newacronym{dsl}{DSL}{domain-specific language}
+  \newacronym{jit}{JIT}{just-in-time}
+  \newacronym{ufl}{UFL}{the Unified Form Language}
+  \newacronym{tsfc}{TSFC}{the Two-Stage Form Compiler}
+\usepackage{graphicx}
+  \graphicspath{{figures}}
+\usepackage{todonotes}
+\usepackage{hyperref}
+\usepackage{subcaption}
+\usepackage{amsmath}
+% source: https://tex.stackexchange.com/questions/650034/mathbb-font-for-lowercase-letters
+\usepackage[bb=libus]{mathalpha}
+\usepackage{pgf}
+\usepackage{pgfplots}
+\usepackage{tikz}
+\usepackage{tkz-euclide}
+  % \usetikzlibrary{arrows,calc,graphs,graphdrawing,positioning,tikzmark,shapes.geometric,patterns.meta,decorations.pathreplacing,decorations.marking}
+  \usetikzlibrary{arrows,calc,graphs,graphdrawing,positioning,tikzmark,shapes.geometric,patterns.meta,decorations.pathreplacing}
+  \usegdlibrary{trees}
+  \pgfdeclarelayer{background}
+  \pgfsetlayers{background,main}
+  \tikzstyle{ptlabel} = [anchor=center, color=black, opacity=1]
+  \tikzset{font={\small}}
+  \tikzset{label style/.append style={font=\small}}
+  % source: https://tex.stackexchange.com/questions/356564/macro-for-rounded-polygon-around-some-nodes
+  \def\drawpolygon#1,#2;{
+    \begin{pgfonlayer}{background}
+        \filldraw[line width=28,join=round](#1.center)foreach\A in{#2}{--(\A.center)}--cycle;
+        \filldraw[line width=27,join=round,blue!10](#1.center)foreach\A in{#2}{--(\A.center)}--cycle;
+    \end{pgfonlayer}
+  }
+
+% theme info
+\usetheme{firedrake}
+
+% title info
+\title{A very short introduction to \texttt{pyop3}}
+\author{Connor Ward}
+\date{24 March 2023}
+
+% macros
+
+% checkbox
+% source https://tex.stackexchange.com/questions/16000/creating-boxed-check-mark
+\newcommand{\unchecked}{\makebox[0pt][l]{$\square$}\raisebox{.15ex}{\hspace{0.1em}$\quad$}}
+\newcommand{\maybe}{\makebox[0pt][l]{$\square$}\raisebox{.15ex}{\hspace{0.1em}$\lozenge$}}
+\newcommand{\checked}{\makebox[0pt][l]{$\square$}\raisebox{.15ex}{\hspace{0.1em}$\checkmark$}}
+
+% hacky way to get \pyop2 and \pyop3 as valid macros
+% source: https://tex.stackexchange.com/questions/13290/how-to-define-macros-with-numbers-in-them
+\def\pyop#1{\ifnum#1=2 {PyOP2}\else \ifnum#1=3 {\texttt{pyop3}}\fi \fi}
+
+\newcommand{\py}{\mintinline{python}}
+\newcommand{\clang}{\mintinline{c}}
+\newcommand{\closure}{\mathbb{cl}}
+\newcommand{\support}{\mathbb{supp}}
+\newcommand{\plexstar}{\mathbb{st}}
+\newcommand{\cone}{\mathbb{cone}}
+
+\newcommand{\hdiv}{$H(\mathrm{div})$ }
+\newcommand{\hcurl}{$H(\mathrm{curl})$ }
+
+\tikzstyle{plexstencil} = [draw=none,fill=blue!30,fill opacity=.4]
+
+\newcommand{\codebgcolor}{black!10}
+
+% set default parameters for tcolorbox
+\tcbset{
+  left=2mm
+}
+
+% set default minted parameters
+\setminted{fontsize=\footnotesize}
+
+% =============================================================================
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{What is \pyop3?}
+  \begin{itemize}
+    \item Domain-specific language for writing stencil computations
+    \item Embedded in Python
+    \item Intended to be the successor to \pyop2
+    \item \textbf{Work in progress}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{What is a stencil computation?}
+  \begin{tikzpicture}
+    \input{stencil_computation.tikz}
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]{\pyop3 interface example: FEM assembly}
+  \begin{tcolorbox}
+    \begin{minted}{python}
+loop(
+  c := mesh.cells.index(),
+  kernel(dat1[closure(c)], dat2[closure(c)])  # READ, INC
+)
+    \end{minted}
+  \end{tcolorbox}
+
+  \begin{itemize}
+    \item This loop expression gets compiled to fast C/OpenCL/CUDA code
+    \item Loops can be nested
+    \item Loops can execute more than one statement
+    \item Maps can be composed (e.g. \py{closure(star(v))})
+    \item Works with structured, unstructured and partially structured (e.g. extruded) meshes
+  \end{itemize}
+\end{frame}
+
+\section{``Extraction operators"}
+
+\begin{frame}
+  \begin{tikzpicture}
+    \input{extraction_operator.tikz}
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]
+  \begin{tcolorbox}
+    \begin{minted}{python}
+loop(c := mesh.cells.index(),
+  [
+    t0 := alloc(dat1[closure(c)]),
+    t1 := alloc(dat2[closure(c)]),
+  ],
+  [
+    read(dat1[closure(c)], t0),
+    zero(t1),
+    kernel(t0, t1),
+    inc(t1, dat2[closure(c)]),
+  ]
+)
+    \end{minted}
+  \end{tcolorbox}
+\end{frame}
+
+\begin{frame}[fragile]{Orienting edges}
+  \begin{tcolorbox}
+    \begin{minted}[highlightlines={5,7},highlightcolor=red!30]{python}
+loop(c := mesh.cells.index(), [t0 := ..., t1 := ...],
+  [
+    read(dat1[closure(c)], t0),
+    zero(t1),
+    loop(e := t0.edges.index(), maybeflip(t0[e], o[c, e])),
+    kernel(t0, t1),
+    loop(e := t1.edges.index(), maybeflip(t1[e], o[c, e])),
+    inc(t1, dat2[closure(c)]),
+  ]
+)
+    \end{minted}
+  \end{tcolorbox}
+
+  \begin{itemize}
+    \item \py{maybeflip} is just another (loopy) kernel
+    \item \py{o} is an array storing orientations for each cell closure
+    \item \py{t0} and \py{t1} ``know" which DoFs are edge DoFs
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  This approach should generalise to other types of constraints that we want in our stencil computations:
+
+  \begin{itemize}
+    \item h and p adaptivity
+    \item ``Zany" elements
+    \item Non-slip boundary conditions
+  \end{itemize}
+\end{frame}
+
+\end{document}
